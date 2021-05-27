@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="d3.min.js"></script>
+    <style>
+        .storke {
+
+            stroke: black;
+            stroke-width: 1px;
+        }
+     </style>
+</head>
+<body>
+    <script>
+        var color = d3.scaleLinear()   //AQI颜色比例尺
+            .domain([0,50,100,150,200,300,501])
+            .range(["rgba(0,255,0,0.8)", "rgba(255,255,0,0.8)","rgba(255,165,0,0.8)","rgba(255,0,0,0.8)","rgba(160,32,240,0.8)","rgba(139,0,0,0.8)","rgba(28,28,28,0.8)"]);
+
+        var colordiff = d3.scaleLinear()   //AQI变化颜色比例尺
+            .domain([-30,0,30])
+            .range(["rgba(0,0,255,0.8)","rgba(255,255,255,0.8)","rgba(255,0,0,0.8)"]);
+
+        function drawDirection(data){
+            console.log(data);
+            //var e = 30;
+            d3.selectAll(".location").append("polygon")
+                .attr("points","0,5 -2,-4 0,0 2,-4")
+                .attr("stroke",2)
+                .attr("transform", `rotate(${parseFloat(data.Direction)}, ${0} ${0})`)
+
+        }
+
+        d3.json("330000_full.json").then(function(data){   //读取地图数据
+            console.log(data);
+            var projection = d3.geoMercator() //投影
+                                .center([120,28])
+                                .translate([200,400])
+                                .scale(5000)
+                                
+            var geopath = d3.geoPath()      //生成地图path
+                             .projection(projection)
+                             
+            var svg = d3.select("body")  //画一个svg画布
+                            .append("svg")
+                            .attr("width","800")
+                            .attr("height","600")
+            svg.append("g").attr("id","g")  //画出地图
+                //.transform('translate('+this.cx+','+this.cy+') rotate('+rotation+')')
+                .selectAll("path")             
+                .data(data.features)             
+                .enter()             
+                .append("path")           
+                .attr("class","storke")
+                .style("fill","White")
+                .attr("d",geopath)
+                
+                // .on("mouseover",function(d,i){     //鼠标移动经过的交互
+                //      d3.select(this)
+                //         .style("fill","yellow");
+                //   })
+                // .on("mouseout",function(d,i){
+                //      d3.select(this)
+                //         .style("fill","White");
+                // }); 
+            // var grect = document.getElementById("g").getBoundingClientRect()  //获取元素的顶点位置
+            // console.log(grect);
+            var g1 = svg.select("g")//.attr("transform", `rotate(${-8}, ${0} ${0})`)
+            var texts = svg.selectAll(".texts")    //text地图上各个区的名字
+                .data(data.features)
+                .enter()
+                .append("text")
+                .attr("class", "texts")
+                .text(function(d){return d.properties.name;})
+                .attr("transform", function(d) {
+                    var centroid = geopath.centroid(d),
+                    x = centroid[0],
+                    y = centroid[1];
+                    return "translate(" + x + ", " + y + ")";
+                })
+                .attr('fill','#AAA')
+                .attr("font-size","12px")   
+            d3.csv("CN-Reanalysis2013010101.csv").then(function(alldata){   //获取空气数据
+                console.log(alldata);
+                var location = g1.selectAll(".location")   //根据经纬度坐标coor的位置添加g元素
+	                .data(alldata)
+	                .enter()
+	                .append("g")
+	                .attr("class","location")
+	                .attr("transform",function(d){
+	                //计算标注点的位置
+	                    var coor = projection([d["lon"],d["lat"]]);
+	                    return "translate("+ coor[0] + "," + coor[1] +")";
+	                });
+                
+                location.append("rect")   //在g元素中加一个rect，调整合适的角度位置
+                        .attr("width", 13.9)
+                        .attr("height", 13.9)
+                        .attr("transform", `rotate(${8.585}) translate(-7,-7)`)
+                        //.attr("transform", "translate(, 20)")
+
+                //手动切换测试 下一行是AQI变化  下第二行是即时AQI  
+                //var rect = d3.selectAll(".location").select("rect").attr("fill", d => colordiff(d["AQI-Difference"]))   //为rect上色
+                var rect = d3.selectAll(".location").select("rect").attr("fill", d => color(d["AQI"]))
+
+                d3.selectAll(".location").append("polygon")     //画一个风向箭头
+                    .attr("points","0,5 -2,-4 0,0 2,-4")
+                    .attr("stroke",2)
+                    
+                d3.selectAll("polygon")     //根据风向调整箭头角度
+                    .attr("transform",function(d){
+                        return "rotate(" + (parseFloat(d.Direction)-180.0) + ", 0 0)"
+                    })
+                    
+                // d3.selectAll(".location")    //查看一些每个方格的id是怎么排列的
+                //     .append("text")
+                //     .text(function(d){return d[" id"];})
+                
+                
+
+            })                
+        })
+    </script>
+</body>
+</html>

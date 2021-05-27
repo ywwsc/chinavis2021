@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>in-out</title>
+    <script type="text/javascript" src="jquery-3.6.0.js"></script>
+    <script src="d3.min.js"></script>
+    <script src="d3-tip.js"></script>
+    <link rel="stylesheet" type="text/css" href="./inspector.css">
+    <style>
+        .div0{
+            position:relative;  margin:50px auto;
+        }
+        .div0 div{
+            position:absolute; width:800px; height:800px; left:0; top:0; 
+        }
+        
+        .province {
+
+            stroke: rgb(92, 92, 92);
+            stroke-width: 0.5px;
+        }
+        .texts {
+            fill: #777;
+            fill-opacity: .5;
+            font-size: 6px;
+            font-weight: 300;
+            text-anchor: middle;
+        }
+     </style>
+</head>
+<body>
+    <div class="div0">
+        <div class="div0a"></div>
+        <div class="div0b"></div>
+        <div class="div0c"></div>
+           
+        
+    </div>
+    <script type="module">
+
+        import define from "./deckLayer.js";
+        import define2 from "./deckLayer2.js";
+        import {Runtime, Library, Inspector} from "./runtime.js";//窗口下面的参数显示
+        
+        const runtime = new Runtime();
+        const runtime2 = new Runtime();
+        //const main = runtime.module(define, Inspector.into(document.body));  
+        const main = runtime.module(define, Inspector.into(document.getElementsByClassName("div0b")[0])); 
+        //runtime2.module(define2, Inspector.into(document.getElementsByClassName("div0c")[0])); //加第二层
+        
+    </script>
+    <script>
+            
+        d3.select(".div0").call(
+                d3.zoom()
+                  .extent([[0, 0],[800, 800]])
+                  .scaleExtent([1, 15])
+                  .on("zoom", function ({ transform }) {
+                        svg_g.attr("transform", transform);
+                    })
+            )
+        
+            
+        var svg = d3.select(".div0a")  //画一个svg画布
+            .append("svg")
+            .attr("width",800)
+            .attr("height",800)
+            ;
+        
+        
+        const svg_g = svg.append("g")
+
+        //热力图画在g1，地图轮廓画在g2
+        svg_g.append("g").attr("class","g1")
+        svg_g.append("g").attr("class","g2")
+        
+        var mappath = "地图json数据/china.json"
+        var datapath = "全国/2013/CN-Reanalysis2013010312.csv"
+        
+        var drawHeatmap = (datapath) =>{
+            d3.csv(datapath).then(function(data){
+                var projection = d3.geoMercator() //投影
+                                .center([121,38])
+                                .translate([500,400])
+                                .scale(500)
+
+                var color = d3.scaleLinear()   //AQI颜色比例尺
+                    .domain([0,50,100,150,200,300,501])
+                    .range(["rgba(0,255,0,0.8)", "rgba(255,255,0,0.8)","rgba(255,165,0,0.8)","rgba(255,0,0,0.8)","rgba(160,32,240,0.8)","rgba(139,0,0,0.8)","rgba(28,28,28,0.8)"]);
+                
+                var location = d3.select(".g1").selectAll(".location")   //根据经纬度坐标coor的位置添加g元素
+	                .data(data)
+	                .enter()
+	                .append("g")
+                    .attr("class","location")
+	                // .attr("class",function(d){
+                    //     //console.log(d.group);
+                    //     return "class"+d.Group + " location"})
+	                .attr("transform",function(d){
+	                //计算标注点的位置
+	                    var coor = projection([d["lon"],d["lat"]]);
+	                    return "translate("+ coor[0] + "," + coor[1] +")";
+	                });
+                
+                location.append("rect")   //在g元素中加一个rect，调整合适的角度位置
+                        .attr("width", 1.6)
+                        .attr("height", 1.6)
+                        .attr("transform", `rotate(${0}) translate(-0.8,-0.8)`)
+                        //.attr("transform", "translate(, 20)")
+
+                //手动切换测试 下一行是AQI变化  下第二行是即时AQI  
+                //var rect = d3.selectAll(".location").select("rect").attr("fill", d => colordiff(d["AQI-Difference"]))   //为rect上色
+                var rect = d3.selectAll(".location").select("rect").attr("fill", d => color(d["AQI"]))
+
+                // d3.selectAll(".location").append("polygon")     //画一个风向箭头
+                //     .attr("points","0,0.5 -0.2,-0.4 0,0 0.2,-0.4")
+                //     .attr("stroke",0.2)
+                    
+                // d3.selectAll("polygon")     //根据风向调整箭头角度
+                //     .attr("transform",function(d){
+                //         return "rotate(" + (parseFloat(d.Direction)-180.0) + ", 0 0)"
+                //     })
+                // d3.text("test.txt").then(function(text){
+                //     var data = text.split("\n")
+                //     console.log(d3.selectAll(".location"));
+                //     let index = 0
+                //     data.forEach((element,index,arr) => {
+                //         arr[index] = arr[index].replace("[","").replace("]","").split(", ").map(Number)
+                //         index += 1
+                //     });
+                    // data.forEach((i,index)=>{
+                    //         i.forEach(j=>{
+                    //             d3.selectAll(".location")._groups[0].forEach(k=>{
+                    //                 if("id"+j == k.classList[0]){
+                    //                     k.classList[2] = index+"class";
+                    //                 }
+                    //             })
+                    //         })
+                    //     })
+                    //console.log(data);
+                
+                // d3.selectAll(".class-1").select("rect")
+                //     .style("fill","rgba(0,245,255,0)")
+                // d3.selectAll(".location")
+                //     .on("mouseover",function(d,i){ 
+                //         //console.log(i["class"]);    //鼠标移动经过的交互
+                //         d3.selectAll(".class"+i.Group).select("rect")
+                //         .style("fill","rgba(0,245,255,1)")
+                        
+                        
+                //         })
+                //       .on("mouseout",function(d,i){
+                //         d3.selectAll(".location").select("rect").style("fill", function(h){
+                //             // console.log(h);
+                //             return color(h["AQI"])
+                //         })
+                //         d3.selectAll(".class-1").select("rect")
+                //             .style("fill","rgba(0,245,255,0)")
+
+                //         }); 
+                    
+                
+            })
+        }
+        
+        var drawmap = (mappath) =>{
+            d3.json(mappath).then(function(data){   //读取地图数据
+                //console.log(data);
+                var projection = d3.geoMercator() //投影
+                                .center([121,38])
+                                .translate([500,400])
+                                .scale(500)
+                                
+                var geopath = d3.geoPath()      //生成地图path
+                             .projection(projection)
+                             
+                
+                  //画出地图
+                //.transform('translate('+this.cx+','+this.cy+') rotate('+rotation+')')
+                d3.select(".g2").selectAll(".province")             
+                .data(data.features)             
+                .enter()             
+                .append("path")           
+                .attr("class","province")
+                .style("fill","rgba(0,255,0,0)")
+                .attr("d",geopath)
+                
+                
+                // .on("mouseover",function(d,i){     //鼠标移动经过的交互
+                //      d3.select(this)
+                //         .style("fill","yellow");
+                //   })
+                // .on("mouseout",function(d,i){
+                //      d3.select(this)
+                //         .style("fill","White");
+                // }); 
+                // var grect = document.getElementById("g").getBoundingClientRect()  //获取元素的顶点位置
+                // console.log(grect);
+                //var g1 = svg.select("g")//.attr("transform", `rotate(${-8}, ${0} ${0})`)
+                
+                
+                // var texts = svg_g.selectAll(".texts")    //text地图上各个区的名字
+                // .data(data.features)
+                // .enter()
+                // .append("text")
+                // .attr("class", "texts")
+                // .attr("transform", function(d) { return "translate(" + geopath.centroid(d) + ")"; })
+                // .attr("dy", ".35em")
+                // .text(function(d) { return d.properties.name; })
+                
+
+
+                // var tip = d3.tip()
+                //     .attr('class', 'd3-tip')
+                //     //.offset([-10, 0])
+                //     .html(function (d,i){ 
+                //         //console.log(d);
+                //         //console.log(d.properties.name);
+                //         return "<span ><font color='black'>" + i.properties.name + "<br></font></span>" ;
+            
+                //     });
+
+                //     //添加tips
+                // d3.selectAll(".province").on('mouseover', tip.show)
+                //                          .on('mouseout', tip.hide)
+                //                          .call(tip);
+            })   
+        } 
+        //drawmap(mappath);
+        drawHeatmap(datapath); 
+       
+    </script>
+    
+</body>
+</html>

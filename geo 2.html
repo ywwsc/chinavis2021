@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="d3.min.js"></script>
+    <script src="d3-tip.js"></script>
+    <style>
+        .storke {
+
+            stroke: black;
+            stroke-width: 1px;
+        }
+        /* Tooltip CSS */
+	 	.d3-tip {
+            line-height: 1.5;
+            font-weight: 400;
+            font-family: "avenir next", Arial, sans-serif;
+            padding: 6px;
+            background: rgba(0, 0, 0, 0.6);
+            color: #FFA500;
+            border-radius: 1px;
+            pointer-events: none;
+        }
+        /* Creates a small triangle extender for the tooltip */
+        .d3-tip:after {
+            box-sizing: border-box;
+            display: inline;
+            font-size: 8px;
+            width: 100%;
+            line-height: 1.5;
+            color: rgba(0, 0, 0, 0.6);
+            position: absolute;
+            pointer-events: none;
+        }
+        /* Northward tooltips */
+        .d3-tip.n:after {
+            content: "\25BC";
+            margin: -1px 0 0 0;
+            top: 100%;
+            left: 0;
+            text-align: center;
+        }
+        /* Eastward tooltips */
+        .d3-tip.e:after {
+            content: "\25C0";
+            margin: -4px 0 0 0;
+            top: 50%;
+            left: -8px;
+        }
+        /* Southward tooltips */
+        .d3-tip.s:after {
+            content: "\25B2";
+            margin: 0 0 1px 0;
+            top: -8px;
+            left: 0;
+            text-align: center;
+        }
+        /* Westward tooltips */
+        .d3-tip.w:after {
+            content: "\25B6";
+            margin: -4px 0 0 -1px;
+            top: 50%;
+            left: 100%;
+        }
+        .details {
+            color: black;
+        }
+     </style>
+</head>
+<body>
+    <script>
+        var color = d3.scaleLinear()   //AQI颜色比例尺
+            .domain([0,50,100,150,200,300,501])
+            .range(["rgba(0,255,0,0.8)", "rgba(255,255,0,0.8)","rgba(255,165,0,0.8)","rgba(255,0,0,0.8)","rgba(160,32,240,0.8)","rgba(139,0,0,0.8)","rgba(28,28,28,0.8)"]);
+
+        var colordiff = d3.scaleLinear()   //AQI变化颜色比例尺
+            .domain([-30,0,30])
+            .range(["rgba(0,0,255,0.8)","rgba(255,255,255,0.8)","rgba(255,0,0,0.8)"]);
+
+        function drawDirection(data){
+            console.log(data);
+            //var e = 30;
+            d3.selectAll(".location").append("polygon")
+                .attr("points","0,5 -2,-4 0,0 2,-4")
+                .attr("stroke",2)
+                .attr("transform", `rotate(${parseFloat(data.Direction)}, ${0} ${0})`)
+
+        }
+
+        d3.json("地图json数据/根据省份名称命名/zhejiang.json").then(function(data){   //读取地图数据
+            console.log(data);
+            var projection = d3.geoMercator() //投影
+                                .center([120,28])
+                                .translate([200,400])
+                                .scale(5000)
+                                
+            var geopath = d3.geoPath()      //生成地图path
+                             .projection(projection)
+                             
+            var svg = d3.select("body")  //画一个svg画布
+                            .append("svg")
+                            .attr("width","800")
+                            .attr("height","600")
+            svg.append("g").attr("id","g")  //画出地图
+                //.transform('translate('+this.cx+','+this.cy+') rotate('+rotation+')')
+                .selectAll("path")             
+                .data(data.features)             
+                .enter()             
+                .append("path")           
+                .attr("class","storke")
+                .style("fill","White")
+                .attr("d",geopath)
+                
+                // .on("mouseover",function(d,i){     //鼠标移动经过的交互
+                //      d3.select(this)
+                //         .style("fill","yellow");
+                //   })
+                // .on("mouseout",function(d,i){
+                //      d3.select(this)
+                //         .style("fill","White");
+                // }); 
+            // var grect = document.getElementById("g").getBoundingClientRect()  //获取元素的顶点位置
+            // console.log(grect);
+            var g1 = svg.select("g")//.attr("transform", `rotate(${-8}, ${0} ${0})`)
+            var texts = svg.selectAll(".texts")    //text地图上各个区的名字
+                .data(data.features)
+                .enter()
+                .append("text")
+                .attr("class", "texts")
+                .text(function(d){return d.properties.name;})
+                .attr("transform", function(d) {
+                    var centroid = geopath.centroid(d),
+                    x = centroid[0],
+                    y = centroid[1];
+                    return "translate(" + x + ", " + y + ")";
+                })
+                .attr('fill','#AAA')
+                .attr("font-size","12px")   
+            d3.csv("zhejiang/2013/CN-Reanalysis2013011921.csv").then(function(alldata){   //获取空气数据
+                console.log(alldata);
+                var location = g1.selectAll(".location")   //根据经纬度坐标coor的位置添加g元素
+	                .data(alldata)
+	                .enter()
+	                .append("g")
+	                .attr("class","location")
+	                .attr("transform",function(d){
+	                //计算标注点的位置
+	                    var coor = projection([d["lon"],d["lat"]]);
+	                    return "translate("+ coor[0] + "," + coor[1] +")";
+	                });
+                
+                location.append("rect")   //在g元素中加一个rect，调整合适的角度位置
+                        .attr("width", 13.9)
+                        .attr("height", 13.9)
+                        .attr("transform", `rotate(${8}) translate(-7,-7)`)
+                        //.attr("transform", "translate(, 20)")
+
+                
+                //手动切换测试 下一行是AQI变化  下第二行是即时AQI  //为rect上色
+                // var rect = d3.selectAll("rect").attr("fill", d => colordiff(d["AQI-Difference"]))
+                var rect = d3.selectAll(".location").select("rect").attr("fill", d => color(d["AQI"]))
+
+                d3.selectAll(".location").append("polygon")     //画一个风向箭头
+                    .attr("points","0,5 -2,-4 0,0 2,-4")
+                    .attr("stroke",2)
+                    
+                d3.selectAll("polygon")     //根据风向调整箭头角度
+                    .attr("transform",function(d){
+                        return "rotate(" + (parseFloat(d.Direction)-180.0) + ", 0 0)"
+                    })
+                
+                // d3.selectAll(".location")    //查看一些每个方格的id是怎么排列的
+                //     .append("text")
+                //     .text(function(d){return d[" id"];})
+
+                var tip = d3.tip()
+                    //.attr('class', 'd3-tip')
+                    .offset([-10, 0])
+                    .html(function (d,i){ 
+                        console.log(d.target.__data__);
+                        return "<strong>id: </strong><span ><font color='black'>" + i[" id"] + "<br></font></span>" 
+                        + "<strong>AQI: </strong><span ><font color='black'>" + i["AQI"] + "<br></font></span>"
+                        + "<strong>AQI-Difference: </strong><span><font color='black'>" + i["AQI-Difference"] + "<br></font></span>"
+                        + "<strong>CO: </strong><span><font color='black'>" + i["CO"] + "<br></font></span>"
+                        + "<strong>NO2: </strong><span><font color='black'>" + i["NO2"] + "<br></font></span>"
+                        + "<strong>PM2.5: </strong><span><font color='black'>" + i["PM2.5"] + "<br></font></span>"
+                        + "<strong>PM10: </strong><span><font color='black'>" + i["PM10"] + "<br></font></span>";
+            
+                    });
+
+                    //添加tips
+                location.on('mouseover', tip.show)
+                    .on('mouseout', tip.hide);
+               
+                location.call(tip);
+                
+
+
+            })                
+        })
+    </script>
+</body>
+</html>

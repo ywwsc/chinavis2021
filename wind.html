@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>wind</title>
+    <script src="d3.min.js"></script>
+</head>
+<body>
+    
+    <script>
+        var windpath = "path.json"
+        var svg = d3.select("body")  //画一个svg画布
+            .append("svg")
+            .attr("width",2000)
+            .attr("height",2000)
+
+        var projection = d3.geoMercator() //投影
+                                .center([121,38])
+                                .translate([500,400])
+                                .scale(500)
+                            
+        var line = d3.line()
+            .x(function(d) { return d.x * 5; })
+            .y(function(d) { return d.y * 5; })
+            .curve(d3.curveBasis);
+        function wind_animate(line) {
+            // Animation of wind on top of the map,
+            // in a first step we reset the (x2, y2) coordinates to (x1, y1), d.x0 has the x1 value, d.y0 the y1 value
+            // so it becomes a point with opacity set to zero (fully transparent)
+            // then we make a linear transition with a specific duration (pre-calculated), set new (x2, y2) values and
+            // make line (x1, y1) - (x2, y2) visible (opacity 0.8)
+            // then make a new transition for 1 sec (1000ms) and reduce opacity and end with a recursive call to continue
+            // animation
+            line.attr({ x2: function(d) { return d.x0 },
+                        y2: function(d) { return d.y0 } })
+                .style('opacity', 0)  // full transparency, not visible
+                .transition()
+                    .ease('linear')
+                    .duration(function(d) { return d.duration })
+                    .delay(function(d) { return d.delay })
+                    .attr({ x2: function(d) { return d.x1},
+                            y2: function(d) { return d.y1 } })
+                    .style('opacity', 0.8)
+                .transition()
+                    .duration(1000)
+                    .style('opacity', 0.1)
+                .each('end', function() { d3.select(this).call(wind_animate) });
+        }
+
+        function drawWind(windpath){
+            d3.json(windpath).then(function(data){
+                for (p=0; p<data.length; p++) {
+                    svg.append("g")
+                    .append("path")
+			            .style("fill","none")
+			            .style("stroke","black")
+			            .style("stroke-width","1px")
+			            .attr("d",function(d){ return line(data[p])})
+                }
+                
+                
+                // d3.selectAll("g")
+                // .data(data)
+                // .enter()
+                // .append("g")
+                //     .
+            })
+        }
+
+        drawWind(windpath)
+    </script>
+</body>
+</html>
